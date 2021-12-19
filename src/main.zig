@@ -53,6 +53,7 @@ const Tokenizer = struct {
                     0 => break,
                     '\n' => {
                         state = .newline;
+                        result.loc.start = self.index + 1;
                     },
                     '#' => {
                         result.tag = .hashtag;
@@ -82,15 +83,19 @@ const Tokenizer = struct {
                     },
                     else => {
                         state = .start;
+                        self.index -= 1;
                     },
                 },
                 .text => switch (c) {
-                    '\n', '_' => {
-                        //self.index -= 1;
+                    '\n', '_', '"' => {
                         state = .start;
                         break;
                     },
-                    else => {},
+                    else => {
+                        if (self.index == self.buffer.len) {
+                            break;
+                        }
+                    },
                 },
             }
         }
@@ -104,12 +109,12 @@ const Tokenizer = struct {
 };
 
 pub fn main() anyerror!void {
-    const input = "# Le titre du chapitre\n\n\"bonjour\n- ça va ?\n- oui et toi _Jean-Jacques_ ?\"\n\"\"";
+    const input = "# Le titre du chapitre\n\n\"bonjour\n- ça va ?\n- oui et toi _Jean-Jacques_ ?\"\n\"\"\" iiiii";
     var tokenizer = Tokenizer.init(input);
 
     var token = tokenizer.next();
     while (token.tag != .eof) : (token = tokenizer.next()) {
-        std.log.info("{}", .{token});
+        std.log.info("{} <<{s}>>", .{ token, input[token.loc.start..token.loc.end] });
     }
 }
 
