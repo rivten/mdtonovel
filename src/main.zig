@@ -88,7 +88,6 @@ const Tokenizer = struct {
                 },
                 .text => switch (c) {
                     '\n', '_', '"' => {
-                        state = .start;
                         break;
                     },
                     else => {
