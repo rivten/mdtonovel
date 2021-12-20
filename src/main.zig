@@ -326,7 +326,7 @@ const Renderer = struct {
                 std.debug.print("\n\n--- ", .{});
                 renderer.renderEnrichedText(line);
             }
-            std.debug.print("»\n\n", .{});
+            std.debug.print("»", .{});
         }
     }
 
