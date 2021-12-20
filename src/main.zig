@@ -240,6 +240,8 @@ const Parser = struct {
 
     fn parseEnrichedText(p: *Parser) !Node.EnrichedText {
         var texts = std.ArrayList(Node.SimpleOrEmpthText).init(p.gpa);
+        // TODO
+        // If we see two text token consecutively, this is probably a line break and we should parse the second token in a different enriched text
         while (p.token_index < p.tokens.len and (p.tokens[p.token_index].tag == .underscore or p.tokens[p.token_index].tag == .text)) {
             try texts.append(try p.parseSimpleOrEmphText());
         }
@@ -255,9 +257,6 @@ const Parser = struct {
         var lines = std.ArrayList(Node.EnrichedText).init(p.gpa);
         try lines.append(try p.parseEnrichedText());
         while (p.tokens[p.token_index].tag != .quotationMark) {
-            std.log.info("{}", .{p.tokens[p.token_index]});
-            // TODO
-            // bug in the grammar. An enriched text can be a succession of simple text and emph text, you don't have to pick one or the other.
             if (p.tokens[p.token_index].tag != .dashDialogStart) return error.ParseError;
             p.token_index += 1;
             try lines.append(try p.parseEnrichedText());
@@ -292,19 +291,19 @@ const Renderer = struct {
     source: []const u8,
 
     fn renderSimpleText(renderer: *const Renderer, text: Node.SimpleText) void {
-        std.log.info("Simple Text: {s}", .{renderer.source[text.token.loc.start..text.token.loc.end]});
+        std.debug.print("{s}", .{renderer.source[text.token.loc.start..text.token.loc.end]});
     }
 
     fn renderChapterTitle(renderer: *const Renderer, title: Node.ChapterTitle) void {
-        std.log.info("Chapter Title Begin", .{});
+        std.debug.print("## ", .{});
         renderer.renderSimpleText(title.title);
-        std.log.info("Chapter Title End", .{});
+        std.debug.print("\n\n\n", .{});
     }
 
     fn renderEmphText(renderer: *const Renderer, emph: Node.EmphText) void {
-        std.log.info("Emph Begin", .{});
+        std.debug.print("__", .{});
         renderer.renderSimpleText(emph.simpleText);
-        std.log.info("Emph End", .{});
+        std.debug.print("__", .{});
     }
 
     fn renderSimpleOrEmph(renderer: *const Renderer, simpleOrEmph: Node.SimpleOrEmpthText) void {
@@ -315,19 +314,21 @@ const Renderer = struct {
     }
 
     fn renderEnrichedText(renderer: *const Renderer, enrichedText: Node.EnrichedText) void {
-        std.log.info("EnrichedText Start", .{});
         for (enrichedText.texts) |simpleOrEmph| {
             renderer.renderSimpleOrEmph(simpleOrEmph);
         }
-        std.log.info("EnrichedText End", .{});
     }
 
     fn renderDialog(renderer: *const Renderer, dialog: Node.Dialog) void {
-        std.log.info("Dialog Begin", .{});
-        for (dialog.lines) |line| {
-            renderer.renderEnrichedText(line);
+        if (dialog.lines.len > 0) {
+            std.debug.print("«", .{});
+            renderer.renderEnrichedText(dialog.lines[0]);
+            for (dialog.lines[1..]) |line| {
+                std.debug.print("\n\n--- ", .{});
+                renderer.renderEnrichedText(line);
+            }
+            std.debug.print("»\n\n", .{});
         }
-        std.log.info("Dialog End", .{});
     }
 
     fn renderText(renderer: *const Renderer, text: Node.Text) void {
@@ -335,24 +336,22 @@ const Renderer = struct {
             .enrichedText => |enrichedText| renderer.renderEnrichedText(enrichedText),
             .dialog => |dialog| renderer.renderDialog(dialog),
         }
+        std.debug.print("\n\n", .{});
     }
 
     fn renderRoot(renderer: *const Renderer, root: Node.Root) void {
-        std.log.info("Root Begin", .{});
         if (root.title) |title| {
             renderer.renderChapterTitle(title);
         }
         for (root.texts) |text| {
             renderer.renderText(text);
         }
-        std.log.info("Root End", .{});
     }
 };
 
 pub fn main() anyerror!void {
     const input = "# Le titre du chapitre\n\nUn texte court avant le dialogue.\n\"bonjour\n- ça va ?\n- oui et toi _Jean-Jacques_ ?\"\n\"\" iiiii\neeeeee";
     var root = try parse(std.heap.page_allocator, input);
-    //std.log.info("{s}", .{root});
     const renderer = Renderer{
         .source = input,
     };
