@@ -1,5 +1,11 @@
 const std = @import("std");
 
+// TODO
+// * book title
+// * several chapter
+// * scene break
+// * templating
+
 const Token = struct {
     tag: Tag,
     loc: Loc,
