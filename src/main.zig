@@ -5,6 +5,8 @@ const std = @import("std");
 // * several chapter
 // * scene break
 // * templating
+// * fix dialogues without dash on several lines
+// * fix text that come after dialogues but on the same line
 
 const Token = struct {
     tag: Tag,
