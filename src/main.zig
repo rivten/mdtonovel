@@ -254,7 +254,7 @@ const Parser = struct {
 
         var lines = std.ArrayList(Node.EnrichedText).init(p.gpa);
         try lines.append(try p.parseEnrichedText());
-        while (p.token_index < p.tokens.len and p.tokens[p.token_index].tag != .quotationMark) {
+        while (p.tokens[p.token_index].tag != .quotationMark) {
             std.log.info("{}", .{p.tokens[p.token_index]});
             // TODO
             // bug in the grammar. An enriched text can be a succession of simple text and emph text, you don't have to pick one or the other.
@@ -262,6 +262,7 @@ const Parser = struct {
             p.token_index += 1;
             try lines.append(try p.parseEnrichedText());
         }
+        p.token_index += 1;
         return Node.Dialog{
             .lines = lines.items,
         };
@@ -349,7 +350,7 @@ const Renderer = struct {
 };
 
 pub fn main() anyerror!void {
-    const input = "# Le titre du chapitre\n\nUn texte court avant le dialogue.\n\"bonjour\n- ça va ?\n- oui et toi _Jean-Jacques_ ?\"\n\" \" iiiii\neeeeee";
+    const input = "# Le titre du chapitre\n\nUn texte court avant le dialogue.\n\"bonjour\n- ça va ?\n- oui et toi _Jean-Jacques_ ?\"\n\"\" iiiii\neeeeee";
     var root = try parse(std.heap.page_allocator, input);
     //std.log.info("{s}", .{root});
     const renderer = Renderer{
