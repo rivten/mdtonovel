@@ -135,9 +135,13 @@ const Node = struct {
         simpleText: SimpleText,
     };
 
-    const EnrichedText = union(enum) {
+    const SimpleOrEmpthText = union(enum) {
         simpleText: SimpleText,
         emphText: EmphText,
+    };
+
+    const EnrichedText = struct {
+        texts: []SimpleOrEmpthText,
     };
 
     const Text = union(enum) {
@@ -154,7 +158,7 @@ const Node = struct {
 // Root <- ChapterTitle? [Text]
 // ChapterTitle <- # EnrichedText
 // Text <- EnrichedText | Dialog
-// EnrichedText <- SimpleText | EmphText
+// EnrichedText <- [SimpleText | EmphText]
 // SimpleText <- a..zA..Z
 // EmphText <- _ SimpleText _
 // Dialog <- " [EnrichedText] "
@@ -222,16 +226,26 @@ const Parser = struct {
         };
     }
 
-    fn parseEnrichedText(p: *Parser) !Node.EnrichedText {
+    fn parseSimpleOrEmphText(p: *Parser) !Node.SimpleOrEmpthText {
         if (p.tokens[p.token_index].tag == .underscore) {
-            return Node.EnrichedText{
+            return Node.SimpleOrEmpthText{
                 .emphText = try p.parseEmphText(),
             };
         } else {
-            return Node.EnrichedText{
+            return Node.SimpleOrEmpthText{
                 .simpleText = try p.parseSimpleText(),
             };
         }
+    }
+
+    fn parseEnrichedText(p: *Parser) !Node.EnrichedText {
+        var texts = std.ArrayList(Node.SimpleOrEmpthText).init(p.gpa);
+        while (p.token_index < p.tokens.len and (p.tokens[p.token_index].tag == .underscore or p.tokens[p.token_index].tag == .text)) {
+            try texts.append(try p.parseSimpleOrEmphText());
+        }
+        return Node.EnrichedText{
+            .texts = texts.items,
+        };
     }
 
     fn parseDialog(p: *Parser) !Node.Dialog {
@@ -240,7 +254,7 @@ const Parser = struct {
 
         var lines = std.ArrayList(Node.EnrichedText).init(p.gpa);
         try lines.append(try p.parseEnrichedText());
-        while (p.tokens[p.token_index].tag != .quotationMark) {
+        while (p.token_index < p.tokens.len and p.tokens[p.token_index].tag != .quotationMark) {
             std.log.info("{}", .{p.tokens[p.token_index]});
             // TODO
             // bug in the grammar. An enriched text can be a succession of simple text and emph text, you don't have to pick one or the other.
@@ -273,8 +287,73 @@ fn parse(gpa: *std.mem.Allocator, source: [:0]const u8) !Node.Root {
     return try parser.parseRoot();
 }
 
+const Renderer = struct {
+    source: []const u8,
+
+    fn renderSimpleText(renderer: *const Renderer, text: Node.SimpleText) void {
+        std.log.info("Simple Text: {s}", .{renderer.source[text.token.loc.start..text.token.loc.end]});
+    }
+
+    fn renderChapterTitle(renderer: *const Renderer, title: Node.ChapterTitle) void {
+        std.log.info("Chapter Title Begin", .{});
+        renderer.renderSimpleText(title.title);
+        std.log.info("Chapter Title End", .{});
+    }
+
+    fn renderEmphText(renderer: *const Renderer, emph: Node.EmphText) void {
+        std.log.info("Emph Begin", .{});
+        renderer.renderSimpleText(emph.simpleText);
+        std.log.info("Emph End", .{});
+    }
+
+    fn renderSimpleOrEmph(renderer: *const Renderer, simpleOrEmph: Node.SimpleOrEmpthText) void {
+        switch (simpleOrEmph) {
+            .simpleText => |simple| renderer.renderSimpleText(simple),
+            .emphText => |emph| renderer.renderEmphText(emph),
+        }
+    }
+
+    fn renderEnrichedText(renderer: *const Renderer, enrichedText: Node.EnrichedText) void {
+        std.log.info("EnrichedText Start", .{});
+        for (enrichedText.texts) |simpleOrEmph| {
+            renderer.renderSimpleOrEmph(simpleOrEmph);
+        }
+        std.log.info("EnrichedText End", .{});
+    }
+
+    fn renderDialog(renderer: *const Renderer, dialog: Node.Dialog) void {
+        std.log.info("Dialog Begin", .{});
+        for (dialog.lines) |line| {
+            renderer.renderEnrichedText(line);
+        }
+        std.log.info("Dialog End", .{});
+    }
+
+    fn renderText(renderer: *const Renderer, text: Node.Text) void {
+        switch (text) {
+            .enrichedText => |enrichedText| renderer.renderEnrichedText(enrichedText),
+            .dialog => |dialog| renderer.renderDialog(dialog),
+        }
+    }
+
+    fn renderRoot(renderer: *const Renderer, root: Node.Root) void {
+        std.log.info("Root Begin", .{});
+        if (root.title) |title| {
+            renderer.renderChapterTitle(title);
+        }
+        for (root.texts) |text| {
+            renderer.renderText(text);
+        }
+        std.log.info("Root End", .{});
+    }
+};
+
 pub fn main() anyerror!void {
-    const input = "# Le titre du chapitre\n\nUn texte court avant le dialogue.\n\"bonjour\n- ça va ?\n- oui et toi _Jean-Jacques_ ?\"\n\"\"\" iiiii\neeeeee";
+    const input = "# Le titre du chapitre\n\nUn texte court avant le dialogue.\n\"bonjour\n- ça va ?\n- oui et toi _Jean-Jacques_ ?\"\n\" \" iiiii\neeeeee";
     var root = try parse(std.heap.page_allocator, input);
-    std.log.info("{}", .{root.title});
+    //std.log.info("{s}", .{root});
+    const renderer = Renderer{
+        .source = input,
+    };
+    renderer.renderRoot(root);
 }
