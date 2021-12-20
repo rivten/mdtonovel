@@ -240,10 +240,9 @@ const Parser = struct {
 
     fn parseEnrichedText(p: *Parser) !Node.EnrichedText {
         var texts = std.ArrayList(Node.SimpleOrEmpthText).init(p.gpa);
-        // TODO
-        // If we see two text token consecutively, this is probably a line break and we should parse the second token in a different enriched text
         while (p.token_index < p.tokens.len and (p.tokens[p.token_index].tag == .underscore or p.tokens[p.token_index].tag == .text)) {
             try texts.append(try p.parseSimpleOrEmphText());
+            if (p.tokens[p.token_index - 1].tag == .text and p.token_index < p.tokens.len and p.tokens[p.token_index].tag == .text) break;
         }
         return Node.EnrichedText{
             .texts = texts.items,
