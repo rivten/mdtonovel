@@ -26,10 +26,10 @@ const Token = struct {
 };
 
 const Tokenizer = struct {
-    buffer: [:0]const u8,
+    buffer: []const u8,
     index: usize,
 
-    pub fn init(buffer: [:0]const u8) Tokenizer {
+    pub fn init(buffer: []const u8) Tokenizer {
         return .{
             .buffer = buffer,
             .index = 0,
@@ -52,7 +52,7 @@ const Tokenizer = struct {
             },
         };
 
-        while (true) : (self.index += 1) {
+        while (self.index < self.buffer.len) : (self.index += 1) {
             const c = self.buffer[self.index];
             switch (state) {
                 .start => switch (c) {
@@ -273,7 +273,7 @@ const Parser = struct {
     }
 };
 
-fn parse(gpa: *std.mem.Allocator, source: [:0]const u8) !Node.Root {
+fn parse(gpa: *std.mem.Allocator, source: []const u8) !Node.Root {
     var tokens = std.ArrayList(Token).init(gpa);
     var tokenizer = Tokenizer.init(source);
 
@@ -355,7 +355,15 @@ const Renderer = struct {
 };
 
 pub fn main() anyerror!void {
-    const input = "# Le titre du chapitre\n\nUn texte court avant le dialogue.\n\"bonjour\n- ça va ?\n- oui et toi _Jean-Jacques_ ?\"\n\"\" iiiii\neeeeee";
+    var argsIt = std.process.args();
+    defer argsIt.deinit();
+    const processName = try argsIt.next(std.heap.page_allocator).?;
+    std.heap.page_allocator.free(processName);
+    const filepath = try argsIt.next(std.heap.page_allocator).?;
+    defer std.heap.page_allocator.free(filepath);
+
+    const input = try std.fs.cwd().readFileAlloc(std.heap.page_allocator, filepath, 1024 * 1024);
+
     var root = try parse(std.heap.page_allocator, input);
     const renderer = Renderer{
         .source = input,
