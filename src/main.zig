@@ -132,31 +132,32 @@ const Node = struct {
     };
 
     const EmphText = struct {
-        simpleText: *SimpleText,
+        simpleText: SimpleText,
+    };
+
+    const EnrichedText = union(enum) {
+        simpleText: SimpleText,
+        emphText: EmphText,
     };
 
     const Text = union(enum) {
-        simpleText: *SimpleText,
-        emphText: *EmphText,
+        enrichedText: EnrichedText,
+        dialog: Dialog,
     };
 
     const Dialog = struct {
-        lines: []DialogLine,
-    };
-
-    const DialogLine = struct {
-        text: *Text,
+        lines: []EnrichedText,
     };
 };
 
 // GRAMMAR
 // Root <- ChapterTitle? [Text]
-// ChapterTitle <- # Text
-// Text <- SimpleText | EmphText | Dialog
+// ChapterTitle <- # EnrichedText
+// Text <- EnrichedText | Dialog
+// EnrichedText <- SimpleText | EmphText
 // SimpleText <- a..zA..Z
 // EmphText <- _ SimpleText _
-// Dialog <- " [DialogLine] "
-// DialogLine <- SimpleText | EmphText
+// Dialog <- " [EnrichedText] "
 
 const Parser = struct {
     gpa: *std.mem.Allocator,
@@ -164,38 +165,92 @@ const Parser = struct {
     tokens: []const Token,
     token_index: usize,
 
-    fn parseRoot(p: *Parser) Node.Root {
+    fn parseRoot(p: *Parser) !Node.Root {
         return Node.Root{
-            .title = p.parseChapterTitle(),
-            .texts = &[_]Node.Text{},
+            .title = try p.parseChapterTitle(),
+            .texts = try p.parseTextBlock(),
         };
     }
 
-    fn parseChapterTitle(p: *Parser) ?Node.ChapterTitle {
+    fn parseChapterTitle(p: *Parser) !?Node.ChapterTitle {
         if (p.tokens[p.token_index].tag == .hashtag) {
             p.token_index += 1;
             return Node.ChapterTitle{
-                .title = p.parseSimpleText(),
+                .title = try p.parseSimpleText(),
             };
         } else {
             return null;
         }
     }
 
-    fn parseSimpleText(p: *Parser) Node.SimpleText {
-        if (p.tokens[p.token_index].tag != .text) std.os.abort();
+    fn parseSimpleText(p: *Parser) !Node.SimpleText {
+        if (p.tokens[p.token_index].tag != .text) return error.ParseError;
         p.token_index += 1;
         return Node.SimpleText{
             .token = p.tokens[p.token_index - 1],
         };
     }
 
-    fn eatToken(p: *Parser, tokenTag: Token.Tag) void {
-        if (p.tokens[p.token_index].tag == tokenTag) {
-            p.token_index += 1;
-        } else {
-            std.os.abort();
+    fn parseTextBlock(p: *Parser) ![]Node.Text {
+        var texts = std.ArrayList(Node.Text).init(p.gpa);
+        while (p.token_index < p.tokens.len) {
+            if (p.tokens[p.token_index].tag == .quotationMark) {
+                try texts.append(.{
+                    .dialog = try p.parseDialog(),
+                });
+            } else {
+                try texts.append(.{
+                    .enrichedText = try p.parseEnrichedText(),
+                });
+            }
         }
+
+        return texts.items;
+    }
+
+    fn parseEmphText(p: *Parser) !Node.EmphText {
+        if (p.tokens[p.token_index].tag != .underscore) return error.ParseError;
+        p.token_index += 1;
+
+        var simpleText = try p.parseSimpleText();
+
+        if (p.tokens[p.token_index].tag != .underscore) return error.ParseError;
+        p.token_index += 1;
+
+        return Node.EmphText{
+            .simpleText = simpleText,
+        };
+    }
+
+    fn parseEnrichedText(p: *Parser) !Node.EnrichedText {
+        if (p.tokens[p.token_index].tag == .underscore) {
+            return Node.EnrichedText{
+                .emphText = try p.parseEmphText(),
+            };
+        } else {
+            return Node.EnrichedText{
+                .simpleText = try p.parseSimpleText(),
+            };
+        }
+    }
+
+    fn parseDialog(p: *Parser) !Node.Dialog {
+        if (p.tokens[p.token_index].tag != .quotationMark) return error.ParseError;
+        p.token_index += 1;
+
+        var lines = std.ArrayList(Node.EnrichedText).init(p.gpa);
+        try lines.append(try p.parseEnrichedText());
+        while (p.tokens[p.token_index].tag != .quotationMark) {
+            std.log.info("{}", .{p.tokens[p.token_index]});
+            // TODO
+            // bug in the grammar. An enriched text can be a succession of simple text and emph text, you don't have to pick one or the other.
+            if (p.tokens[p.token_index].tag != .dashDialogStart) return error.ParseError;
+            p.token_index += 1;
+            try lines.append(try p.parseEnrichedText());
+        }
+        return Node.Dialog{
+            .lines = lines.items,
+        };
     }
 };
 
@@ -215,13 +270,11 @@ fn parse(gpa: *std.mem.Allocator, source: [:0]const u8) !Node.Root {
         .token_index = 0,
     };
 
-    return parser.parseRoot();
+    return try parser.parseRoot();
 }
 
 pub fn main() anyerror!void {
     const input = "# Le titre du chapitre\n\nUn texte court avant le dialogue.\n\"bonjour\n- ça va ?\n- oui et toi _Jean-Jacques_ ?\"\n\"\"\" iiiii\neeeeee";
     var root = try parse(std.heap.page_allocator, input);
-    std.log.info("{} <<{s}>>", .{ root.title, input[root.title.?.title.token.loc.start..root.title.?.title.token.loc.end] });
+    std.log.info("{}", .{root.title});
 }
-
-test "parseDialog" {}
