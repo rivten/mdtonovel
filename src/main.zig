@@ -118,7 +118,7 @@ const Tokenizer = struct {
 const Node = struct {
     const Tag = union(enum) {
         root: Root,
-        chapterTitle: ChapterTitle,
+        novelTitle: NovelTitle,
         simpleText: SimpleText,
         emphText: EmphText,
         text: Text,
@@ -127,11 +127,20 @@ const Node = struct {
     };
 
     const Root = struct {
+        title: ?NovelTitle,
+        chapters: []Chapter,
+    };
+
+    const Chapter = struct {
         title: ?ChapterTitle,
         texts: []Text,
     };
 
     const ChapterTitle = struct {
+        text: SimpleText,
+    };
+
+    const NovelTitle = struct {
         title: SimpleText,
     };
 
@@ -163,8 +172,9 @@ const Node = struct {
 };
 
 // GRAMMAR
-// Root <- ChapterTitle? [Text]
-// ChapterTitle <- # EnrichedText
+// Root <- NovelTitle? [Chapter]
+// ChapterTitle <- ## EnrichedText
+// Chapter <- ChapterTitle [Text]
 // Text <- EnrichedText | Dialog
 // EnrichedText <- [SimpleText | EmphText]
 // SimpleText <- a..zA..Z
@@ -178,7 +188,19 @@ const Parser = struct {
     token_index: usize,
 
     fn parseRoot(p: *Parser) !Node.Root {
+        var title = try p.parseNovelTitle();
+        var chapters = std.ArrayList(Node.Chapter).init(p.gpa);
+        while (p.token_index < p.tokens.len) {
+            try chapters.append(try p.parseChapter());
+        }
         return Node.Root{
+            .title = title,
+            .chapters = chapters.items,
+        };
+    }
+
+    fn parseChapter(p: *Parser) !Node.Chapter {
+        return Node.Chapter{
             .title = try p.parseChapterTitle(),
             .texts = try p.parseTextBlock(),
         };
@@ -187,7 +209,23 @@ const Parser = struct {
     fn parseChapterTitle(p: *Parser) !?Node.ChapterTitle {
         if (p.tokens[p.token_index].tag == .hashtag) {
             p.token_index += 1;
-            return Node.ChapterTitle{
+            if (p.tokens[p.token_index].tag == .hashtag) {
+                p.token_index += 1;
+                return Node.ChapterTitle{
+                    .text = try p.parseSimpleText(),
+                };
+            } else {
+                return null;
+            }
+        } else {
+            return null;
+        }
+    }
+
+    fn parseNovelTitle(p: *Parser) !?Node.NovelTitle {
+        if (p.tokens[p.token_index].tag == .hashtag) {
+            p.token_index += 1;
+            return Node.NovelTitle{
                 .title = try p.parseSimpleText(),
             };
         } else {
@@ -205,7 +243,7 @@ const Parser = struct {
 
     fn parseTextBlock(p: *Parser) ![]Node.Text {
         var texts = std.ArrayList(Node.Text).init(p.gpa);
-        while (p.token_index < p.tokens.len) {
+        while (p.token_index < p.tokens.len and (p.tokens[p.token_index].tag == .quotationMark or p.tokens[p.token_index].tag == .text)) {
             if (p.tokens[p.token_index].tag == .quotationMark) {
                 try texts.append(.{
                     .dialog = try p.parseDialog(),
@@ -301,7 +339,7 @@ const Renderer = struct {
         std.debug.print("{s}", .{renderer.source[text.token.loc.start..text.token.loc.end]});
     }
 
-    fn renderChapterTitle(renderer: *const Renderer, title: Node.ChapterTitle) void {
+    fn renderNovelTitle(renderer: *const Renderer, title: Node.NovelTitle) void {
         std.debug.print("## ", .{});
         renderer.renderSimpleText(title.title);
         std.debug.print("\n\n\n", .{});
@@ -346,12 +384,25 @@ const Renderer = struct {
         std.debug.print("\n\n", .{});
     }
 
-    fn renderRoot(renderer: *const Renderer, root: Node.Root) void {
-        if (root.title) |title| {
+    fn renderChapterTitle(renderer: *const Renderer, chapterTitle: Node.ChapterTitle) void {
+        renderer.renderSimpleText(chapterTitle.text);
+    }
+
+    fn renderChapter(renderer: *const Renderer, chapter: Node.Chapter) void {
+        if (chapter.title) |title| {
             renderer.renderChapterTitle(title);
         }
-        for (root.texts) |text| {
+        for (chapter.texts) |text| {
             renderer.renderText(text);
+        }
+    }
+
+    fn renderRoot(renderer: *const Renderer, root: Node.Root) void {
+        if (root.title) |title| {
+            renderer.renderNovelTitle(title);
+        }
+        for (root.chapters) |chapter| {
+            renderer.renderChapter(chapter);
         }
     }
 };
