@@ -1,12 +1,10 @@
 const std = @import("std");
 
 // TODO
-// * book title
-// * several chapter
 // * scene break
 // * templating
-// * fix dialogues without dash on several lines
-// * fix text that come after dialogues but on the same line
+// * fix rendering text that come after dialogues but on the same line
+// * fix rendering of dialog paragraph : no two lines after the first
 
 const Token = struct {
     tag: Tag,
@@ -167,7 +165,20 @@ const Node = struct {
     };
 
     const Dialog = struct {
-        lines: []EnrichedText,
+        paragraphs: []DialogParagraph,
+    };
+
+    const DialogParagraph = union(enum) {
+        dialogNewSpeaker: DialogNewSpeaker,
+        dialogSameSpeaker: DialogSameSpeaker,
+    };
+
+    const DialogNewSpeaker = struct {
+        text: EnrichedText,
+    };
+
+    const DialogSameSpeaker = struct {
+        text: EnrichedText,
     };
 };
 
@@ -179,7 +190,9 @@ const Node = struct {
 // EnrichedText <- [SimpleText | EmphText]
 // SimpleText <- a..zA..Z
 // EmphText <- _ SimpleText _
-// Dialog <- " [EnrichedText] "
+// Dialog <- " [DialogParagraph] "
+// DialogParagraph <- DialogNewSpeak | EmphText
+// DialogNewSpeak <- - EmphText
 
 const Parser = struct {
     gpa: *std.mem.Allocator,
@@ -259,6 +272,7 @@ const Parser = struct {
     }
 
     fn parseEmphText(p: *Parser) !Node.EmphText {
+        std.log.info("{}", .{p.tokens[p.token_index]});
         if (p.tokens[p.token_index].tag != .underscore) return error.ParseError;
         p.token_index += 1;
 
@@ -295,20 +309,47 @@ const Parser = struct {
         };
     }
 
+    fn parseDialogSameSpeaker(p: *Parser) !Node.DialogSameSpeaker {
+        return Node.DialogSameSpeaker{
+            .text = try p.parseEnrichedText(),
+        };
+    }
+
+    fn parseDialogNewSpeaker(p: *Parser) !Node.DialogNewSpeaker {
+        if (p.tokens[p.token_index].tag != .dashDialogStart) return error.ParseError;
+        p.token_index += 1;
+        return Node.DialogNewSpeaker{
+            .text = try p.parseEnrichedText(),
+        };
+    }
+
+    fn parseDialogParagraph(p: *Parser) !Node.DialogParagraph {
+        if (p.tokens[p.token_index].tag == .dashDialogStart) {
+            return Node.DialogParagraph{
+                .dialogNewSpeaker = try p.parseDialogNewSpeaker(),
+            };
+        } else {
+            return Node.DialogParagraph{
+                .dialogSameSpeaker = try p.parseDialogSameSpeaker(),
+            };
+        }
+    }
+
     fn parseDialog(p: *Parser) !Node.Dialog {
         if (p.tokens[p.token_index].tag != .quotationMark) return error.ParseError;
         p.token_index += 1;
 
-        var lines = std.ArrayList(Node.EnrichedText).init(p.gpa);
-        try lines.append(try p.parseEnrichedText());
+        var paragraphs = std.ArrayList(Node.DialogParagraph).init(p.gpa);
+        try paragraphs.append(.{
+            .dialogSameSpeaker = try p.parseDialogSameSpeaker(),
+        });
         while (p.tokens[p.token_index].tag != .quotationMark) {
-            if (p.tokens[p.token_index].tag != .dashDialogStart) return error.ParseError;
-            p.token_index += 1;
-            try lines.append(try p.parseEnrichedText());
+            std.log.info("{}", .{p.tokens[p.token_index]});
+            try paragraphs.append(try p.parseDialogParagraph());
         }
         p.token_index += 1;
         return Node.Dialog{
-            .lines = lines.items,
+            .paragraphs = paragraphs.items,
         };
     }
 };
@@ -364,16 +405,29 @@ const Renderer = struct {
         }
     }
 
-    fn renderDialog(renderer: *const Renderer, dialog: Node.Dialog) void {
-        if (dialog.lines.len > 0) {
-            std.debug.print("«", .{});
-            renderer.renderEnrichedText(dialog.lines[0]);
-            for (dialog.lines[1..]) |line| {
-                std.debug.print("\n\n--- ", .{});
-                renderer.renderEnrichedText(line);
-            }
-            std.debug.print("»", .{});
+    fn renderDialogNewSpeaker(renderer: *const Renderer, dialogNewSpeaker: Node.DialogNewSpeaker) void {
+        std.debug.print("\n\n--- ", .{});
+        renderer.renderEnrichedText(dialogNewSpeaker.text);
+    }
+
+    fn renderDialogSameSpeaker(renderer: *const Renderer, dialogSameSpeaker: Node.DialogSameSpeaker) void {
+        std.debug.print("\n\n", .{});
+        renderer.renderEnrichedText(dialogSameSpeaker.text);
+    }
+
+    fn renderDialogParagraph(renderer: *const Renderer, dialogParagraph: Node.DialogParagraph) void {
+        switch (dialogParagraph) {
+            .dialogNewSpeaker => |dialogNewSpeaker| renderer.renderDialogNewSpeaker(dialogNewSpeaker),
+            .dialogSameSpeaker => |dialogSameSpeaker| renderer.renderDialogSameSpeaker(dialogSameSpeaker),
         }
+    }
+
+    fn renderDialog(renderer: *const Renderer, dialog: Node.Dialog) void {
+        std.debug.print("«", .{});
+        for (dialog.paragraphs) |p| {
+            renderer.renderDialogParagraph(p);
+        }
+        std.debug.print("»", .{});
     }
 
     fn renderText(renderer: *const Renderer, text: Node.Text) void {
