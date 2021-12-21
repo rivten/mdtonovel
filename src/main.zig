@@ -4,6 +4,7 @@ const std = @import("std");
 // * scene break
 // * templating
 // * fix rendering text that come after dialogues but on the same line
+// * fix bug where separate paragraphs are concatenated in the output
 
 const Token = struct {
     tag: Tag,
