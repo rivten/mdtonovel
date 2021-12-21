@@ -166,6 +166,7 @@ const Node = struct {
 
     const Dialog = struct {
         paragraphs: []DialogParagraph,
+        endWithNewline: bool,
     };
 
     const DialogParagraph = union(enum) {
@@ -367,8 +368,14 @@ const Parser = struct {
             try paragraphs.append(try p.parseDialogParagraph());
         }
         p.token_index += 1;
+        var endWithNewline = false;
+        if (p.token_index < p.tokens.len and p.tokens[p.token_index].tag == .newline) {
+            endWithNewline = true;
+            p.token_index += 1;
+        }
         return Node.Dialog{
             .paragraphs = paragraphs.items,
+            .endWithNewline = endWithNewline,
         };
     }
 };
@@ -454,14 +461,19 @@ const Renderer = struct {
             }
             std.debug.print("»", .{});
         }
+        if (dialog.endWithNewline) {
+            std.debug.print("\n\n", .{});
+        }
     }
 
     fn renderText(renderer: *const Renderer, text: Node.Text) void {
         switch (text) {
-            .enrichedText => |enrichedText| renderer.renderEnrichedText(enrichedText),
+            .enrichedText => |enrichedText| {
+                renderer.renderEnrichedText(enrichedText);
+                std.debug.print("\n\n", .{});
+            },
             .dialog => |dialog| renderer.renderDialog(dialog),
         }
-        std.debug.print("\n\n", .{});
     }
 
     fn renderChapterTitle(renderer: *const Renderer, chapterTitle: Node.ChapterTitle) void {
