@@ -272,7 +272,6 @@ const Parser = struct {
     }
 
     fn parseEmphText(p: *Parser) !Node.EmphText {
-        std.log.info("{}", .{p.tokens[p.token_index]});
         if (p.tokens[p.token_index].tag != .underscore) return error.ParseError;
         p.token_index += 1;
 
@@ -344,7 +343,6 @@ const Parser = struct {
             .dialogSameSpeaker = try p.parseDialogSameSpeaker(),
         });
         while (p.tokens[p.token_index].tag != .quotationMark) {
-            std.log.info("{}", .{p.tokens[p.token_index]});
             try paragraphs.append(try p.parseDialogParagraph());
         }
         p.token_index += 1;
