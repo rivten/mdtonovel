@@ -4,7 +4,6 @@ const std = @import("std");
 // * scene break
 // * templating
 // * fix rendering text that come after dialogues but on the same line
-// * fix rendering of dialog paragraph : no two lines after the first
 
 const Token = struct {
     tag: Tag,
@@ -404,12 +403,11 @@ const Renderer = struct {
     }
 
     fn renderDialogNewSpeaker(renderer: *const Renderer, dialogNewSpeaker: Node.DialogNewSpeaker) void {
-        std.debug.print("\n\n--- ", .{});
+        std.debug.print("--- ", .{});
         renderer.renderEnrichedText(dialogNewSpeaker.text);
     }
 
     fn renderDialogSameSpeaker(renderer: *const Renderer, dialogSameSpeaker: Node.DialogSameSpeaker) void {
-        std.debug.print("\n\n", .{});
         renderer.renderEnrichedText(dialogSameSpeaker.text);
     }
 
@@ -421,11 +419,19 @@ const Renderer = struct {
     }
 
     fn renderDialog(renderer: *const Renderer, dialog: Node.Dialog) void {
-        std.debug.print("«", .{});
-        for (dialog.paragraphs) |p| {
-            renderer.renderDialogParagraph(p);
+        if (dialog.paragraphs.len > 0) {
+            std.debug.print("«", .{});
+            renderer.renderDialogParagraph(dialog.paragraphs[0]);
+            if (dialog.paragraphs.len > 1) {
+                std.debug.print("\n\n", .{});
+                for (dialog.paragraphs[1 .. dialog.paragraphs.len - 1]) |p| {
+                    renderer.renderDialogParagraph(p);
+                    std.debug.print("\n\n", .{});
+                }
+                renderer.renderDialogParagraph(dialog.paragraphs[dialog.paragraphs.len - 1]);
+            }
+            std.debug.print("»", .{});
         }
-        std.debug.print("»", .{});
     }
 
     fn renderText(renderer: *const Renderer, text: Node.Text) void {
