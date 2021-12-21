@@ -413,9 +413,9 @@ const Renderer = struct {
     }
 
     fn renderEmphText(renderer: *const Renderer, emph: Node.EmphText) void {
-        std.debug.print("__", .{});
+        std.debug.print("\\emph{{", .{});
         renderer.renderSimpleText(emph.simpleText);
-        std.debug.print("__", .{});
+        std.debug.print("}}", .{});
     }
 
     fn renderSimpleOrEmph(renderer: *const Renderer, simpleOrEmph: Node.SimpleOrEmpthText) void {
@@ -432,7 +432,7 @@ const Renderer = struct {
     }
 
     fn renderDialogNewSpeaker(renderer: *const Renderer, dialogNewSpeaker: Node.DialogNewSpeaker) void {
-        std.debug.print("--- ", .{});
+        std.debug.print("— ", .{});
         renderer.renderEnrichedText(dialogNewSpeaker.text);
     }
 
