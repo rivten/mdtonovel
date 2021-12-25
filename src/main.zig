@@ -1,8 +1,10 @@
+const template = @embedFile("../template.tex");
 const std = @import("std");
 
 // TODO
 // * scene break
-// * templating
+// * "mais c'est un élément puissant" ne devrait pas générer une nouvelle ligne
+// * nouvelle page pour un nouveau chapitre
 
 const Token = struct {
     tag: Tag,
@@ -481,9 +483,10 @@ const Renderer = struct {
     }
 
     fn renderChapterTitle(renderer: *const Renderer, chapterTitle: Node.ChapterTitle) void {
-        std.debug.print("\\ChapterStart{{", .{});
+        std.debug.print("\\begin{{ChapterStart}}", .{});
+        std.debug.print("\\ChapterTitle{{", .{});
         renderer.renderSimpleText(chapterTitle.text);
-        std.debug.print("}}\n\n", .{});
+        std.debug.print("}}\\end{{ChapterStart}}\n\n", .{});
     }
 
     fn renderChapter(renderer: *const Renderer, chapter: Node.Chapter) void {
@@ -519,5 +522,20 @@ pub fn main() anyerror!void {
     const renderer = Renderer{
         .source = input,
     };
-    renderer.renderRoot(root);
+
+    var template_iterator = std.mem.split(template, "{{}}");
+    const before_title = template_iterator.next().?;
+    const after_title_before_author = template_iterator.next().?;
+    const after_author_before_main = template_iterator.next().?;
+    const after_main = template_iterator.next().?;
+
+    std.debug.print("{s}", .{before_title});
+    renderer.renderSimpleText(root.title.?.title);
+    std.debug.print("{s}{s}{s}", .{ after_title_before_author, "Hugo Viala", after_author_before_main });
+    for (root.chapters) |chapter| {
+        renderer.renderChapter(chapter);
+    }
+    std.debug.print("{s}", .{
+        after_main,
+    });
 }
