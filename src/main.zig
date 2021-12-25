@@ -4,6 +4,8 @@ const std = @import("std");
 // TODO
 // * scene break
 // * do not write to stderr but to a file
+// * proper templated with something like mustache
+// * ability to pass author and below title as arguments
 
 const Token = struct {
     tag: Tag,
@@ -524,12 +526,13 @@ pub fn main() anyerror!void {
     var template_iterator = std.mem.split(template, "{{}}");
     const before_title = template_iterator.next().?;
     const after_title_before_author = template_iterator.next().?;
-    const after_author_before_main = template_iterator.next().?;
+    const after_author_before_below_text = template_iterator.next().?;
+    const after_below_text_before_main = template_iterator.next().?;
     const after_main = template_iterator.next().?;
 
     std.debug.print("{s}", .{before_title});
     renderer.renderSimpleText(root.title.?.title);
-    std.debug.print("{s}{s}{s}", .{ after_title_before_author, "Hugo Viala", after_author_before_main });
+    std.debug.print("{s}{s}{s}{s}{s}", .{ after_title_before_author, "Hugo Viala", after_author_before_below_text, "EDITIONS DE SOHEN • NANTES", after_below_text_before_main });
     for (root.chapters) |chapter| {
         renderer.renderChapter(chapter);
     }
