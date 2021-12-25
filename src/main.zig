@@ -4,7 +4,6 @@ const std = @import("std");
 // TODO
 // * scene break
 // * "mais c'est un élément puissant" ne devrait pas générer une nouvelle ligne
-// * nouvelle page pour un nouveau chapitre
 
 const Token = struct {
     tag: Tag,
@@ -483,7 +482,7 @@ const Renderer = struct {
     }
 
     fn renderChapterTitle(renderer: *const Renderer, chapterTitle: Node.ChapterTitle) void {
-        std.debug.print("\\begin{{ChapterStart}}", .{});
+        std.debug.print("\\clearpage\n\\begin{{ChapterStart}}", .{});
         std.debug.print("\\ChapterTitle{{", .{});
         renderer.renderSimpleText(chapterTitle.text);
         std.debug.print("}}\\end{{ChapterStart}}\n\n", .{});
