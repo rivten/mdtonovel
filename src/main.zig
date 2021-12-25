@@ -203,7 +203,7 @@ const Parser = struct {
     token_index: usize,
 
     fn parseRoot(p: *Parser) !Node.Root {
-        std.log.info("parseRoot", .{});
+        //std.log.info("parseRoot", .{});
         var title = try p.parseNovelTitle();
         var chapters = std.ArrayList(Node.Chapter).init(p.gpa);
         while (p.token_index < p.tokens.len) {
@@ -217,7 +217,7 @@ const Parser = struct {
     }
 
     fn parseChapter(p: *Parser) !Node.Chapter {
-        std.log.info("parseChapter", .{});
+        //std.log.info("parseChapter", .{});
         return Node.Chapter{
             .title = try p.parseChapterTitle(),
             .texts = try p.parseTextBlock(),
@@ -225,7 +225,7 @@ const Parser = struct {
     }
 
     fn parseChapterTitle(p: *Parser) !?Node.ChapterTitle {
-        std.log.info("parseChapterTitle", .{});
+        //std.log.info("parseChapterTitle", .{});
         if (p.tokens[p.token_index].tag == .hashtag) {
             p.token_index += 1;
             if (p.tokens[p.token_index].tag == .hashtag) {
@@ -242,7 +242,7 @@ const Parser = struct {
     }
 
     fn parseNovelTitle(p: *Parser) !?Node.NovelTitle {
-        std.log.info("parseNovelTitle", .{});
+        //std.log.info("parseNovelTitle", .{});
         if (p.tokens[p.token_index].tag == .hashtag) {
             p.token_index += 1;
             return Node.NovelTitle{
@@ -254,7 +254,7 @@ const Parser = struct {
     }
 
     fn parseSimpleText(p: *Parser) !Node.SimpleText {
-        std.log.info("parseSimpleText", .{});
+        //std.log.info("parseSimpleText", .{});
         if (p.tokens[p.token_index].tag != .text) return error.ParseError;
         p.token_index += 1;
         return Node.SimpleText{
@@ -263,7 +263,7 @@ const Parser = struct {
     }
 
     fn parseTextBlock(p: *Parser) ![]Node.Text {
-        std.log.info("parseTextBlock {}", .{p.tokens[p.token_index]});
+        //std.log.info("parseTextBlock {}", .{p.tokens[p.token_index]});
 
         var texts = std.ArrayList(Node.Text).init(p.gpa);
         while (p.token_index < p.tokens.len and (p.tokens[p.token_index].tag == .quotationMark or p.tokens[p.token_index].tag == .text or p.tokens[p.token_index].tag == .newline)) {
@@ -284,7 +284,7 @@ const Parser = struct {
     }
 
     fn parseEmphText(p: *Parser) !Node.EmphText {
-        std.log.info("parseEmphText", .{});
+        //std.log.info("parseEmphText", .{});
         if (p.tokens[p.token_index].tag != .underscore) return error.ParseError;
         p.token_index += 1;
 
@@ -299,7 +299,7 @@ const Parser = struct {
     }
 
     fn parseSimpleOrEmphText(p: *Parser) !Node.SimpleOrEmpthText {
-        std.log.info("parseSimpleOrEmphText", .{});
+        //std.log.info("parseSimpleOrEmphText", .{});
         if (p.tokens[p.token_index].tag == .underscore) {
             return Node.SimpleOrEmpthText{
                 .emphText = try p.parseEmphText(),
@@ -312,7 +312,7 @@ const Parser = struct {
     }
 
     fn parseEnrichedText(p: *Parser) !Node.EnrichedText {
-        std.log.info("parseEnrichedText", .{});
+        //std.log.info("parseEnrichedText", .{});
         var texts = std.ArrayList(Node.SimpleOrEmpthText).init(p.gpa);
         while (p.token_index < p.tokens.len and (p.tokens[p.token_index].tag == .underscore or p.tokens[p.token_index].tag == .text or p.tokens[p.token_index].tag == .newline)) {
             if (p.tokens[p.token_index].tag == .newline) {
@@ -328,14 +328,14 @@ const Parser = struct {
     }
 
     fn parseDialogSameSpeaker(p: *Parser) !Node.DialogSameSpeaker {
-        std.log.info("parseDialogSameSpeaker", .{});
+        //std.log.info("parseDialogSameSpeaker", .{});
         return Node.DialogSameSpeaker{
             .text = try p.parseEnrichedText(),
         };
     }
 
     fn parseDialogNewSpeaker(p: *Parser) !Node.DialogNewSpeaker {
-        std.log.info("parseDialogNewSpeaker", .{});
+        //std.log.info("parseDialogNewSpeaker", .{});
         if (p.tokens[p.token_index].tag != .dashDialogStart) return error.ParseError;
         p.token_index += 1;
         return Node.DialogNewSpeaker{
@@ -344,7 +344,7 @@ const Parser = struct {
     }
 
     fn parseDialogParagraph(p: *Parser) !Node.DialogParagraph {
-        std.log.info("parseDialogParagraph", .{});
+        //std.log.info("parseDialogParagraph", .{});
         if (p.tokens[p.token_index].tag == .dashDialogStart) {
             return Node.DialogParagraph{
                 .dialogNewSpeaker = try p.parseDialogNewSpeaker(),
@@ -357,7 +357,7 @@ const Parser = struct {
     }
 
     fn parseDialog(p: *Parser) !Node.Dialog {
-        std.log.info("parseDialog", .{});
+        //std.log.info("parseDialog", .{});
         if (p.tokens[p.token_index].tag != .quotationMark) return error.ParseError;
         p.token_index += 1;
 
@@ -478,7 +478,9 @@ const Renderer = struct {
     }
 
     fn renderChapterTitle(renderer: *const Renderer, chapterTitle: Node.ChapterTitle) void {
+        std.debug.print("\\ChapterStart{{", .{});
         renderer.renderSimpleText(chapterTitle.text);
+        std.debug.print("}}\n\n", .{});
     }
 
     fn renderChapter(renderer: *const Renderer, chapter: Node.Chapter) void {
