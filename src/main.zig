@@ -158,6 +158,7 @@ const Node = struct {
 
     const EnrichedText = struct {
         texts: []SimpleOrEmpthText,
+        endWithNewline: bool,
     };
 
     const Text = union(enum) {
@@ -317,13 +318,14 @@ const Parser = struct {
         while (p.token_index < p.tokens.len and (p.tokens[p.token_index].tag == .underscore or p.tokens[p.token_index].tag == .text or p.tokens[p.token_index].tag == .newline)) {
             if (p.tokens[p.token_index].tag == .newline) {
                 p.token_index += 1;
-                continue;
+                break;
             }
             try texts.append(try p.parseSimpleOrEmphText());
             if (p.tokens[p.token_index - 1].tag == .text and p.token_index < p.tokens.len and p.tokens[p.token_index].tag == .text) break;
         }
         return Node.EnrichedText{
             .texts = texts.items,
+            .endWithNewline = p.tokens[p.token_index - 1].tag == .newline,
         };
     }
 
@@ -429,6 +431,9 @@ const Renderer = struct {
     fn renderEnrichedText(renderer: *const Renderer, enrichedText: Node.EnrichedText) void {
         for (enrichedText.texts) |simpleOrEmph| {
             renderer.renderSimpleOrEmph(simpleOrEmph);
+        }
+        if (enrichedText.endWithNewline) {
+            std.debug.print("\n", .{});
         }
     }
 
