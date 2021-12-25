@@ -3,8 +3,6 @@ const std = @import("std");
 // TODO
 // * scene break
 // * templating
-// * fix rendering text that come after dialogues but on the same line
-// * fix bug where separate paragraphs are concatenated in the output
 
 const Token = struct {
     tag: Tag,
