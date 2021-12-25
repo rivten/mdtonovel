@@ -3,7 +3,7 @@ const std = @import("std");
 
 // TODO
 // * scene break
-// * "mais c'est un élément puissant" ne devrait pas générer une nouvelle ligne
+// * do not write to stderr but to a file
 
 const Token = struct {
     tag: Tag,
@@ -432,7 +432,7 @@ const Renderer = struct {
             renderer.renderSimpleOrEmph(simpleOrEmph);
         }
         if (enrichedText.endWithNewline) {
-            std.debug.print("\n", .{});
+            std.debug.print("\n\n", .{});
         }
     }
 
@@ -475,7 +475,6 @@ const Renderer = struct {
         switch (text) {
             .enrichedText => |enrichedText| {
                 renderer.renderEnrichedText(enrichedText);
-                std.debug.print("\n\n", .{});
             },
             .dialog => |dialog| renderer.renderDialog(dialog),
         }
