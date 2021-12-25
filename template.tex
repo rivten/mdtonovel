@@ -1,0 +1,40 @@
+% !TeX TS-program = LuaLaTeX
+% !TeX encoding = UTF-8
+
+\documentclass[]{novel}
+\usepackage[T1]{fontenc}
+
+\SetPDFX[CGATSTR001]{X-1a:2001}
+
+\SetTitle{{{}}}
+\SetAuthor{{{}}}
+%\SetTrimSize{11cm}{18cm} % Format Poche
+\SetTrimSize{148mm}{210mm} % A5
+\SetHeadFootStyle{2}
+%\SetMargins{}{}{}{}
+\SetFontSize{10pt}
+\SetLinesPerPage{30}
+
+\setdefaultlanguage[variant=french]{french}
+
+\begin{document}
+\frontmatter
+\thispagestyle{empty}
+
+\vspace*{7\nbs}
+\begin{center}
+\charscale[2.5]{\theTitle}\par
+\vspace{6\nbs}
+\charscale[1.5]{\theAuthor}\par
+\vfill
+EDITION • CITY, COUNTRY\par
+\end{center} 
+
+\mainmatter
+
+{{}}
+
+\clearpage
+
+\end{document}
+
