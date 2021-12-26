@@ -2,7 +2,6 @@ const template = @embedFile("../template.tex");
 const std = @import("std");
 
 // TODO
-// * scene break
 // * do not write to stderr but to a file
 // * proper templated with something like mustache
 // * ability to pass author and below title as arguments
@@ -23,6 +22,7 @@ const Token = struct {
         quotationMark,
         underscore,
         newline,
+        sceneBreak,
         eof,
     };
 };
@@ -85,8 +85,13 @@ const Tokenizer = struct {
                 },
                 .newline => switch (c) {
                     '-' => {
-                        result.tag = .dashDialogStart;
-                        self.index += 1;
+                        if (self.index + 2 < self.buffer.len and self.buffer[self.index + 1] == '-' and self.buffer[self.index + 2] == '-') {
+                            result.tag = .sceneBreak;
+                            self.index += 3;
+                        } else {
+                            result.tag = .dashDialogStart;
+                            self.index += 1;
+                        }
                         break;
                     },
                     else => {
@@ -165,6 +170,7 @@ const Node = struct {
     const Text = union(enum) {
         enrichedText: EnrichedText,
         dialog: Dialog,
+        sceneBreak: void,
     };
 
     const Dialog = struct {
@@ -190,7 +196,7 @@ const Node = struct {
 // Root <- NovelTitle? [Chapter]
 // ChapterTitle <- ## EnrichedText
 // Chapter <- ChapterTitle [Text]
-// Text <- EnrichedText | Dialog
+// Text <- EnrichedText | Dialog | SceneBreak
 // EnrichedText <- [SimpleText | EmphText]
 // SimpleText <- a..zA..Z
 // EmphText <- _ SimpleText _
@@ -268,8 +274,13 @@ const Parser = struct {
         //std.log.info("parseTextBlock {}", .{p.tokens[p.token_index]});
 
         var texts = std.ArrayList(Node.Text).init(p.gpa);
-        while (p.token_index < p.tokens.len and (p.tokens[p.token_index].tag == .quotationMark or p.tokens[p.token_index].tag == .text or p.tokens[p.token_index].tag == .newline)) {
-            if (p.tokens[p.token_index].tag == .quotationMark) {
+        while (p.token_index < p.tokens.len and (p.tokens[p.token_index].tag == .quotationMark or p.tokens[p.token_index].tag == .text or p.tokens[p.token_index].tag == .newline or p.tokens[p.token_index].tag == .sceneBreak)) {
+            if (p.tokens[p.token_index].tag == .sceneBreak) {
+                try texts.append(.{
+                    .sceneBreak = {},
+                });
+                p.token_index += 1;
+            } else if (p.tokens[p.token_index].tag == .quotationMark) {
                 try texts.append(.{
                     .dialog = try p.parseDialog(),
                 });
@@ -473,12 +484,17 @@ const Renderer = struct {
         }
     }
 
+    fn renderSceneBreak(renderer: *const Renderer) void {
+        std.debug.print("\\sceneline\n", .{});
+    }
+
     fn renderText(renderer: *const Renderer, text: Node.Text) void {
         switch (text) {
             .enrichedText => |enrichedText| {
                 renderer.renderEnrichedText(enrichedText);
             },
             .dialog => |dialog| renderer.renderDialog(dialog),
+            .sceneBreak => renderer.renderSceneBreak(),
         }
     }
 
