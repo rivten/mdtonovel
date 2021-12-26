@@ -165,9 +165,15 @@ const Node = struct {
         emphText: EmphText,
     };
 
+    const NewlineType = enum {
+        none,
+        simple,
+        double,
+    };
+
     const EnrichedText = struct {
         texts: []SimpleOrEmpthText,
-        endWithNewline: bool,
+        endWithNewline: NewlineType,
     };
 
     const Text = union(enum) {
@@ -178,7 +184,7 @@ const Node = struct {
 
     const Dialog = struct {
         paragraphs: []DialogParagraph,
-        endWithNewline: bool,
+        endWithNewline: NewlineType,
     };
 
     const DialogParagraph = union(enum) {
@@ -338,9 +344,16 @@ const Parser = struct {
             try texts.append(try p.parseSimpleOrEmphText());
             if (p.tokens[p.token_index - 1].tag == .text and p.token_index < p.tokens.len and p.tokens[p.token_index].tag == .text) break;
         }
+        var endWithNewline = Node.NewlineType.none;
+        if (p.tokens[p.token_index - 1].tag == .newline) {
+            endWithNewline = Node.NewlineType.simple;
+            if (p.token_index + 1 < p.tokens.len and p.tokens[p.token_index].tag == .newline and p.tokens[p.token_index + 1].tag == .newline) {
+                endWithNewline = Node.NewlineType.double;
+            }
+        }
         return Node.EnrichedText{
             .texts = texts.items,
-            .endWithNewline = p.tokens[p.token_index - 1].tag == .newline,
+            .endWithNewline = endWithNewline,
         };
     }
 
@@ -386,10 +399,14 @@ const Parser = struct {
             try paragraphs.append(try p.parseDialogParagraph());
         }
         p.token_index += 1;
-        var endWithNewline = false;
+        var endWithNewline = Node.NewlineType.none;
         if (p.token_index < p.tokens.len and p.tokens[p.token_index].tag == .newline) {
-            endWithNewline = true;
+            endWithNewline = Node.NewlineType.simple;
             p.token_index += 1;
+            if (p.token_index + 1 < p.tokens.len and p.tokens[p.token_index].tag == .newline and p.tokens[p.token_index + 1].tag == .newline) {
+                endWithNewline = Node.NewlineType.double;
+                p.token_index += 2;
+            }
         }
         return Node.Dialog{
             .paragraphs = paragraphs.items,
@@ -448,8 +465,10 @@ const Renderer = struct {
         for (enrichedText.texts) |simpleOrEmph| {
             try renderer.renderSimpleOrEmph(simpleOrEmph);
         }
-        if (enrichedText.endWithNewline) {
-            _ = try renderer.out.write("\n\n");
+        switch (enrichedText.endWithNewline) {
+            .none => {},
+            .simple => _ = try renderer.out.write("\n\n"),
+            .double => _ = try renderer.out.write("\\\\\n\n"),
         }
     }
 
@@ -483,8 +502,10 @@ const Renderer = struct {
             }
             _ = try renderer.out.write("»");
         }
-        if (dialog.endWithNewline) {
-            _ = try renderer.out.write("\n\n");
+        switch (dialog.endWithNewline) {
+            .none => {},
+            .simple => _ = try renderer.out.write("\n\n"),
+            .double => _ = try renderer.out.write("\\\\\n\n"),
         }
     }
 
