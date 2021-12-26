@@ -428,9 +428,9 @@ const Renderer = struct {
     }
 
     fn renderEmphText(renderer: *const Renderer, emph: Node.EmphText) !void {
-        _ = try renderer.out.write("\\emph{{");
+        _ = try renderer.out.write("\\emph{");
         try renderer.renderSimpleText(emph.simpleText);
-        _ = try renderer.out.write("}}");
+        _ = try renderer.out.write("}");
     }
 
     fn renderSimpleOrEmph(renderer: *const Renderer, simpleOrEmph: Node.SimpleOrEmpthText) !void {
@@ -499,10 +499,10 @@ const Renderer = struct {
     }
 
     fn renderChapterTitle(renderer: *const Renderer, chapterTitle: Node.ChapterTitle) !void {
-        _ = try renderer.out.write("\\clearpage\n\\begin{{ChapterStart}}");
-        _ = try renderer.out.write("\\ChapterTitle{{");
+        _ = try renderer.out.write("\\clearpage\n\\begin{ChapterStart}");
+        _ = try renderer.out.write("\\ChapterTitle{");
         try renderer.renderSimpleText(chapterTitle.text);
-        _ = try renderer.out.write("}}\\end{{ChapterStart}}\n\n");
+        _ = try renderer.out.write("}\\end{ChapterStart}\n\n");
     }
 
     fn renderChapter(renderer: *const Renderer, chapter: Node.Chapter) !void {
@@ -558,4 +558,10 @@ pub fn main() anyerror!void {
         try renderer.renderChapter(chapter);
     }
     _ = try renderer.out.write(after_main);
+
+    const latexCompilationResult = try std.ChildProcess.exec(.{
+        .allocator = std.heap.page_allocator,
+        .argv = &[_][]const u8{ "lualatex", "/tmp/out.tex" },
+    });
+    std.debug.print("{s}\n", .{latexCompilationResult.stdout});
 }
