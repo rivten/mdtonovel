@@ -2,7 +2,6 @@ const template = @embedFile("../template.tex");
 const std = @import("std");
 
 // TODO
-// * do not write to stderr but to a file
 // * proper templated with something like mustache
 // * ability to pass author and below title as arguments
 
@@ -416,110 +415,111 @@ fn parse(gpa: *std.mem.Allocator, source: []const u8) !Node.Root {
 
 const Renderer = struct {
     source: []const u8,
+    out: std.fs.File,
 
-    fn renderSimpleText(renderer: *const Renderer, text: Node.SimpleText) void {
-        std.debug.print("{s}", .{renderer.source[text.token.loc.start..text.token.loc.end]});
+    fn renderSimpleText(renderer: *const Renderer, text: Node.SimpleText) !void {
+        _ = try renderer.out.write(renderer.source[text.token.loc.start..text.token.loc.end]);
     }
 
-    fn renderNovelTitle(renderer: *const Renderer, title: Node.NovelTitle) void {
-        std.debug.print("## ", .{});
-        renderer.renderSimpleText(title.title);
-        std.debug.print("\n\n\n", .{});
+    fn renderNovelTitle(renderer: *const Renderer, title: Node.NovelTitle) !void {
+        _ = try renderer.out.write("## ");
+        try renderer.renderSimpleText(title.title);
+        _ = try renderer.out.write("\n\n\n");
     }
 
-    fn renderEmphText(renderer: *const Renderer, emph: Node.EmphText) void {
-        std.debug.print("\\emph{{", .{});
-        renderer.renderSimpleText(emph.simpleText);
-        std.debug.print("}}", .{});
+    fn renderEmphText(renderer: *const Renderer, emph: Node.EmphText) !void {
+        _ = try renderer.out.write("\\emph{{");
+        try renderer.renderSimpleText(emph.simpleText);
+        _ = try renderer.out.write("}}");
     }
 
-    fn renderSimpleOrEmph(renderer: *const Renderer, simpleOrEmph: Node.SimpleOrEmpthText) void {
+    fn renderSimpleOrEmph(renderer: *const Renderer, simpleOrEmph: Node.SimpleOrEmpthText) !void {
         switch (simpleOrEmph) {
-            .simpleText => |simple| renderer.renderSimpleText(simple),
-            .emphText => |emph| renderer.renderEmphText(emph),
+            .simpleText => |simple| try renderer.renderSimpleText(simple),
+            .emphText => |emph| try renderer.renderEmphText(emph),
         }
     }
 
-    fn renderEnrichedText(renderer: *const Renderer, enrichedText: Node.EnrichedText) void {
+    fn renderEnrichedText(renderer: *const Renderer, enrichedText: Node.EnrichedText) !void {
         for (enrichedText.texts) |simpleOrEmph| {
-            renderer.renderSimpleOrEmph(simpleOrEmph);
+            try renderer.renderSimpleOrEmph(simpleOrEmph);
         }
         if (enrichedText.endWithNewline) {
-            std.debug.print("\n\n", .{});
+            _ = try renderer.out.write("\n\n");
         }
     }
 
-    fn renderDialogNewSpeaker(renderer: *const Renderer, dialogNewSpeaker: Node.DialogNewSpeaker) void {
-        std.debug.print("— ", .{});
-        renderer.renderEnrichedText(dialogNewSpeaker.text);
+    fn renderDialogNewSpeaker(renderer: *const Renderer, dialogNewSpeaker: Node.DialogNewSpeaker) !void {
+        _ = try renderer.out.write("— ");
+        try renderer.renderEnrichedText(dialogNewSpeaker.text);
     }
 
-    fn renderDialogSameSpeaker(renderer: *const Renderer, dialogSameSpeaker: Node.DialogSameSpeaker) void {
-        renderer.renderEnrichedText(dialogSameSpeaker.text);
+    fn renderDialogSameSpeaker(renderer: *const Renderer, dialogSameSpeaker: Node.DialogSameSpeaker) !void {
+        try renderer.renderEnrichedText(dialogSameSpeaker.text);
     }
 
-    fn renderDialogParagraph(renderer: *const Renderer, dialogParagraph: Node.DialogParagraph) void {
+    fn renderDialogParagraph(renderer: *const Renderer, dialogParagraph: Node.DialogParagraph) !void {
         switch (dialogParagraph) {
-            .dialogNewSpeaker => |dialogNewSpeaker| renderer.renderDialogNewSpeaker(dialogNewSpeaker),
-            .dialogSameSpeaker => |dialogSameSpeaker| renderer.renderDialogSameSpeaker(dialogSameSpeaker),
+            .dialogNewSpeaker => |dialogNewSpeaker| try renderer.renderDialogNewSpeaker(dialogNewSpeaker),
+            .dialogSameSpeaker => |dialogSameSpeaker| try renderer.renderDialogSameSpeaker(dialogSameSpeaker),
         }
     }
 
-    fn renderDialog(renderer: *const Renderer, dialog: Node.Dialog) void {
+    fn renderDialog(renderer: *const Renderer, dialog: Node.Dialog) !void {
         if (dialog.paragraphs.len > 0) {
-            std.debug.print("«", .{});
-            renderer.renderDialogParagraph(dialog.paragraphs[0]);
+            _ = try renderer.out.write("«");
+            try renderer.renderDialogParagraph(dialog.paragraphs[0]);
             if (dialog.paragraphs.len > 1) {
-                std.debug.print("\n\n", .{});
+                _ = try renderer.out.write("\n\n");
                 for (dialog.paragraphs[1 .. dialog.paragraphs.len - 1]) |p| {
-                    renderer.renderDialogParagraph(p);
-                    std.debug.print("\n\n", .{});
+                    try renderer.renderDialogParagraph(p);
+                    _ = try renderer.out.write("\n\n");
                 }
-                renderer.renderDialogParagraph(dialog.paragraphs[dialog.paragraphs.len - 1]);
+                try renderer.renderDialogParagraph(dialog.paragraphs[dialog.paragraphs.len - 1]);
             }
-            std.debug.print("»", .{});
+            _ = try renderer.out.write("»");
         }
         if (dialog.endWithNewline) {
-            std.debug.print("\n\n", .{});
+            _ = try renderer.out.write("\n\n");
         }
     }
 
-    fn renderSceneBreak(renderer: *const Renderer) void {
-        std.debug.print("\\sceneline\n", .{});
+    fn renderSceneBreak(renderer: *const Renderer) !void {
+        _ = try renderer.out.write("\\sceneline\n");
     }
 
-    fn renderText(renderer: *const Renderer, text: Node.Text) void {
+    fn renderText(renderer: *const Renderer, text: Node.Text) !void {
         switch (text) {
             .enrichedText => |enrichedText| {
-                renderer.renderEnrichedText(enrichedText);
+                try renderer.renderEnrichedText(enrichedText);
             },
-            .dialog => |dialog| renderer.renderDialog(dialog),
-            .sceneBreak => renderer.renderSceneBreak(),
+            .dialog => |dialog| try renderer.renderDialog(dialog),
+            .sceneBreak => try renderer.renderSceneBreak(),
         }
     }
 
-    fn renderChapterTitle(renderer: *const Renderer, chapterTitle: Node.ChapterTitle) void {
-        std.debug.print("\\clearpage\n\\begin{{ChapterStart}}", .{});
-        std.debug.print("\\ChapterTitle{{", .{});
-        renderer.renderSimpleText(chapterTitle.text);
-        std.debug.print("}}\\end{{ChapterStart}}\n\n", .{});
+    fn renderChapterTitle(renderer: *const Renderer, chapterTitle: Node.ChapterTitle) !void {
+        _ = try renderer.out.write("\\clearpage\n\\begin{{ChapterStart}}");
+        _ = try renderer.out.write("\\ChapterTitle{{");
+        try renderer.renderSimpleText(chapterTitle.text);
+        _ = try renderer.out.write("}}\\end{{ChapterStart}}\n\n");
     }
 
-    fn renderChapter(renderer: *const Renderer, chapter: Node.Chapter) void {
+    fn renderChapter(renderer: *const Renderer, chapter: Node.Chapter) !void {
         if (chapter.title) |title| {
-            renderer.renderChapterTitle(title);
+            try renderer.renderChapterTitle(title);
         }
         for (chapter.texts) |text| {
-            renderer.renderText(text);
+            try renderer.renderText(text);
         }
     }
 
-    fn renderRoot(renderer: *const Renderer, root: Node.Root) void {
+    fn renderRoot(renderer: *const Renderer, root: Node.Root) !void {
         if (root.title) |title| {
-            renderer.renderNovelTitle(title);
+            try renderer.renderNovelTitle(title);
         }
         for (root.chapters) |chapter| {
-            renderer.renderChapter(chapter);
+            try renderer.renderChapter(chapter);
         }
     }
 };
@@ -537,6 +537,7 @@ pub fn main() anyerror!void {
     var root = try parse(std.heap.page_allocator, input);
     const renderer = Renderer{
         .source = input,
+        .out = try std.fs.cwd().createFile("/tmp/out.tex", .{}),
     };
 
     var template_iterator = std.mem.split(template, "{{}}");
@@ -546,13 +547,15 @@ pub fn main() anyerror!void {
     const after_below_text_before_main = template_iterator.next().?;
     const after_main = template_iterator.next().?;
 
-    std.debug.print("{s}", .{before_title});
-    renderer.renderSimpleText(root.title.?.title);
-    std.debug.print("{s}{s}{s}{s}{s}", .{ after_title_before_author, "Hugo Viala", after_author_before_below_text, "EDITIONS DE SOHEN • NANTES", after_below_text_before_main });
+    _ = try renderer.out.write(before_title);
+    try renderer.renderSimpleText(root.title.?.title);
+    _ = try renderer.out.write(after_title_before_author);
+    _ = try renderer.out.write("Hugo Viala");
+    _ = try renderer.out.write(after_author_before_below_text);
+    _ = try renderer.out.write("EDITIONS DE SOHEN • NANTES");
+    _ = try renderer.out.write(after_below_text_before_main);
     for (root.chapters) |chapter| {
-        renderer.renderChapter(chapter);
+        try renderer.renderChapter(chapter);
     }
-    std.debug.print("{s}", .{
-        after_main,
-    });
+    _ = try renderer.out.write(after_main);
 }
