@@ -4,6 +4,10 @@ const std = @import("std");
 // TODO
 // * proper templated with something like mustache
 // * ability to pass author and below title as arguments
+// * do not hardcode out file path, make it specifiable
+// * make the template file specifiable
+// * improve lexer and parser code
+// * avoid infinite loop when errors in input file
 
 const Token = struct {
     tag: Tag,
