@@ -8,6 +8,7 @@ const std = @import("std");
 // * make the template file specifiable
 // * improve lexer and parser code
 // * avoid infinite loop when errors in input file
+// * chapter title on several lines
 
 const Token = struct {
     tag: Tag,
