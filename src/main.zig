@@ -533,6 +533,8 @@ const Renderer = struct {
     fn renderChapter(renderer: *const Renderer, chapter: Node.Chapter) !void {
         if (chapter.title) |title| {
             try renderer.renderChapterTitle(title);
+        } else {
+            _ = try renderer.out.write("\\clearpage\n\\begin{ChapterStart}\\end{ChapterStart}");
         }
         for (chapter.texts) |text| {
             try renderer.renderText(text);
