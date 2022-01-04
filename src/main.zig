@@ -132,7 +132,6 @@ const Node = struct {
         emphText: EmphText,
         text: Text,
         dialog: Dialog,
-        dialogLine: DialogLine,
     };
 
     const Root = struct {
@@ -215,7 +214,7 @@ const Node = struct {
 // DialogNewSpeak <- - EmphText
 
 const Parser = struct {
-    gpa: *std.mem.Allocator,
+    gpa: std.mem.Allocator,
     source: []const u8,
     tokens: []const Token,
     token_index: usize,
@@ -416,7 +415,7 @@ const Parser = struct {
     }
 };
 
-fn parse(gpa: *std.mem.Allocator, source: []const u8) !Node.Root {
+fn parse(gpa: std.mem.Allocator, source: []const u8) !Node.Root {
     var tokens = std.ArrayList(Token).init(gpa);
     var tokenizer = Tokenizer.init(source);
 
@@ -568,7 +567,7 @@ pub fn main() anyerror!void {
         .out = try std.fs.cwd().createFile("/tmp/out.tex", .{}),
     };
 
-    var template_iterator = std.mem.split(template, "{{}}");
+    var template_iterator = std.mem.split(u8, template, "{{}}");
     const before_title = template_iterator.next().?;
     const after_title_before_author = template_iterator.next().?;
     const after_author_before_below_text = template_iterator.next().?;
