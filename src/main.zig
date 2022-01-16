@@ -283,7 +283,7 @@ const Parser = struct {
         //std.log.info("parseTextBlock {}", .{p.tokens[p.token_index]});
 
         var texts = std.ArrayList(Node.Text).init(p.gpa);
-        while (p.token_index < p.tokens.len and (p.tokens[p.token_index].tag == .quotationMark or p.tokens[p.token_index].tag == .text or p.tokens[p.token_index].tag == .newline or p.tokens[p.token_index].tag == .sceneBreak)) {
+        while (p.token_index < p.tokens.len and (p.tokens[p.token_index].tag == .quotationMark or p.tokens[p.token_index].tag == .text or p.tokens[p.token_index].tag == .newline or p.tokens[p.token_index].tag == .sceneBreak or p.tokens[p.token_index].tag == .underscore)) {
             if (p.tokens[p.token_index].tag == .sceneBreak) {
                 try texts.append(.{
                     .sceneBreak = {},
@@ -293,7 +293,7 @@ const Parser = struct {
                 try texts.append(.{
                     .dialog = try p.parseDialog(),
                 });
-            } else if (p.tokens[p.token_index].tag == .text) {
+            } else if (p.tokens[p.token_index].tag == .text or p.tokens[p.token_index].tag == .underscore) {
                 try texts.append(.{
                     .enrichedText = try p.parseEnrichedText(),
                 });
